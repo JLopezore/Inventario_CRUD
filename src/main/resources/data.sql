@@ -1,3 +1,5 @@
+TRUNCATE TABLE videojuegos RESTART IDENTITY CASCADE;
+
 -- RPGs y Acción/Aventura
 INSERT INTO videojuegos (titulo, plataforma, anio_lanzamiento, completado) VALUES ('The Legend of Zelda: Breath of the Wild', 'Nintendo Switch', 2017, true);
 INSERT INTO videojuegos (titulo, plataforma, anio_lanzamiento, completado) VALUES ('The Legend of Zelda: Tears of the Kingdom', 'Nintendo Switch', 2023, false);

@@ -1,5 +1,6 @@
 version: '3.8'
 services:
+
   postgres-db:
     image: postgres:16-alpine
     container_name: inventario_db
@@ -11,6 +12,25 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d inventario"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: crudlab_app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres-db:5432/inventario
+      DB_USER: admin
+      DB_PASSWORD: 123456
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    restart: on-failure
 
 volumes:
   postgres_data:
