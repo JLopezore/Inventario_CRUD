@@ -360,6 +360,74 @@
     .wiki-loading { color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0; }
     .wiki-not-found { color: var(--text-muted); font-size: 0.88rem; font-style: italic; }
 
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+    .search-wrap {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+    .search-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 2rem 0.55rem 2.2rem;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--accent-light); }
+    .search-icon {
+      position: absolute;
+      left: 0.65rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: 0.85rem;
+    }
+    .search-clear {
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.1rem 0.3rem;
+      font-size: 0.85rem;
+      display: none;
+      border-radius: 4px;
+    }
+    .search-clear.visible { display: block; }
+    .search-clear:hover { color: var(--text); }
+    select.sort-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    select.sort-select:focus { border-color: var(--accent-light); }
+    .result-count {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
     /* ── Modal action buttons ── */
     .modal-actions {
       margin-top: auto;
@@ -473,6 +541,23 @@
       <small style="color:var(--text-muted); font-weight:400; font-size:0.8rem; margin-left:0.25rem;">— pulsa una fila para ver detalles</small>
       <button class="btn-secondary" style="margin-left:auto; padding:0.35rem 0.9rem; font-size:0.8rem;" onclick="loadGames()">↻ Refrescar</button>
     </h2>
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="search-input" type="text"
+               placeholder="Buscar por título o plataforma…"
+               oninput="applyFilters()" />
+        <button class="search-clear" id="search-clear" onclick="clearSearch()">✕</button>
+      </div>
+      <select class="sort-select" id="sort-select" onchange="applyFilters()">
+        <option value="titulo-asc">Título A → Z</option>
+        <option value="titulo-desc">Título Z → A</option>
+        <option value="anio-desc">Año: más reciente</option>
+        <option value="anio-asc">Año: más antiguo</option>
+        <option value="id-asc">Orden de registro</option>
+      </select>
+      <span class="result-count" id="result-count"></span>
+    </div>
     <div class="table-wrap">
       <div id="list-container"><div class="loader"><span class="spinner"></span>Cargando…</div></div>
     </div>
@@ -556,7 +641,7 @@
       const res = await fetch(API);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       allGames = await res.json();
-      renderGames(allGames);
+      applyFilters();
       renderStats(allGames);
     } catch (e) {
       container.innerHTML = `<div class="empty"><span class="emoji">⚠️</span>No se pudo conectar con la API.<br><small>${e.message}</small></div>`;
@@ -594,6 +679,45 @@
     document.getElementById('stat-total').textContent   = games.length;
     document.getElementById('stat-done').textContent    = done;
     document.getElementById('stat-pending').textContent = games.length - done;
+  }
+
+  /* ── Búsqueda y ordenado ── */
+
+  function applyFilters() {
+    const q    = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+    const sort = document.getElementById('sort-select')?.value || 'titulo-asc';
+
+    document.getElementById('search-clear')?.classList.toggle('visible', q.length > 0);
+
+    let result = allGames.filter(g =>
+      g.titulo.toLowerCase().includes(q) ||
+      (g.plataforma || '').toLowerCase().includes(q)
+    );
+
+    result.sort((a, b) => {
+      switch (sort) {
+        case 'titulo-asc':  return a.titulo.localeCompare(b.titulo, 'es');
+        case 'titulo-desc': return b.titulo.localeCompare(a.titulo, 'es');
+        case 'anio-desc':   return (b.anioLanzamiento ?? 0)    - (a.anioLanzamiento ?? 0);
+        case 'anio-asc':    return (a.anioLanzamiento ?? 9999) - (b.anioLanzamiento ?? 9999);
+        case 'id-asc':      return a.id - b.id;
+        default:            return 0;
+      }
+    });
+
+    const countEl = document.getElementById('result-count');
+    if (countEl) {
+      countEl.textContent = q
+        ? `${result.length} de ${allGames.length} juegos`
+        : `${allGames.length} juegos`;
+    }
+
+    renderGames(result);
+  }
+
+  function clearSearch() {
+    document.getElementById('search-input').value = '';
+    applyFilters();
   }
 
   /* ── Detail modal ── */
