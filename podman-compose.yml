@@ -2,14 +2,12 @@ version: '3.8'
 services:
 
   postgres-db:
-    image: postgres:16-alpine
+    image: docker.io/postgres:16-alpine
     container_name: inventario_db
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: inventario
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -33,13 +31,13 @@ services:
     restart: on-failure
 
   nginx:
-    image: nginx:alpine
+    image: docker.io/nginx:alpine
     container_name: crudlab_nginx
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
-      - ./src/main/resources/static:/usr/share/nginx/html:ro
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./src/main/resources/static:/usr/share/nginx/html:ro,Z
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro,Z
     depends_on:
       - app
     restart: on-failure

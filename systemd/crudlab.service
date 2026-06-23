@@ -1,0 +1,16 @@
+[Unit]
+Description=CRUD Lab — Catálogo de Videojuegos
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Cambia esta ruta a donde hayas clonado el repositorio
+WorkingDirectory=/opt/crudlab
+ExecStart=/usr/bin/podman-compose -f podman-compose.yml up
+ExecStop=/usr/bin/podman-compose -f podman-compose.yml down
+Restart=on-failure
+RestartSec=15s
+
+[Install]
+WantedBy=multi-user.target

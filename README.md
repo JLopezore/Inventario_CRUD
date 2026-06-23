@@ -12,7 +12,7 @@ Aplicación web full-stack para gestionar un catálogo personal de videojuegos. 
 | Base de datos | PostgreSQL 16 |
 | Frontend | HTML · CSS · JavaScript (vanilla) |
 | Servidor web | Nginx Alpine |
-| Contenedores | Docker · Docker Compose |
+| Contenedores | Docker · Docker Compose · Podman (Red Hat) |
 
 ---
 
@@ -32,34 +32,90 @@ Nginx sirve el frontend y actúa como reverse proxy hacia la API. Spring Boot no
 
 ## Requisitos
 
-- [Docker](https://www.docker.com/) y Docker Compose instalados
+- [Docker](https://www.docker.com/) y Docker Compose, **o bien**
+- [Podman](https://podman.io/) y `podman-compose` (Red Hat / RHEL / Fedora)
 
 ---
 
 ## Cómo ejecutar
 
+### Con Docker
+
 ```bash
-# Clonar el repositorio
 git clone <url-del-repo>
 cd CRUD-Lab
 
-# Levantar todos los servicios
 docker compose up --build
 ```
 
-La aplicación estará disponible en **http://localhost**.
-
-Para detenerla:
+La aplicación estará disponible en **http://localhost** (puerto 80).
 
 ```bash
-docker compose down
+docker compose down        # detener
+docker compose down -v     # detener y borrar datos
 ```
 
-Para detenerla y eliminar los datos de la base de datos:
+---
+
+### Con Podman en Red Hat (RHEL 8/9)
+
+#### 1. Instalar dependencias
 
 ```bash
-docker compose down -v
+sudo dnf install -y podman podman-compose
 ```
+
+#### 2. Clonar y construir
+
+```bash
+git clone <url-del-repo>
+sudo cp -r CRUD-Lab /opt/crudlab
+cd /opt/crudlab
+
+podman-compose -f podman-compose.yml build
+podman-compose -f podman-compose.yml up -d
+```
+
+La aplicación estará disponible en **http://localhost:8080** (el nginx del contenedor escucha en el puerto 8080 del host).
+
+```bash
+podman-compose -f podman-compose.yml down        # detener
+podman-compose -f podman-compose.yml down -v     # detener y borrar datos
+```
+
+#### 3. Redirigir el puerto 80 → 8080 (opcional)
+
+Si quieres que la app responda en el puerto 80 estándar:
+
+```bash
+sudo firewall-cmd --permanent --add-forward-port=port=80:proto=tcp:toport=8080
+sudo firewall-cmd --reload
+```
+
+#### 4. Ejecutar como servicio systemd (inicio automático)
+
+```bash
+# Copiar la unidad de servicio
+sudo cp /opt/crudlab/systemd/crudlab.service /etc/systemd/system/
+
+# Editar la ruta WorkingDirectory si el proyecto no está en /opt/crudlab
+sudo systemctl daemon-reload
+sudo systemctl enable --now crudlab
+
+# Verificar estado
+sudo systemctl status crudlab
+journalctl -u crudlab -f    # logs en tiempo real
+```
+
+#### Diferencias frente a Docker
+
+| Aspecto | Docker | Podman (RHEL) |
+|---|---|---|
+| Archivo compose | `docker-compose.yml` | `podman-compose.yml` |
+| Imágenes | `postgres:16-alpine` | `docker.io/postgres:16-alpine` |
+| SELinux | No aplica | Etiqueta `:Z` en bind mounts |
+| Puerto nginx | 80 | 8080 (sin root) |
+| Daemon | Requiere Docker daemon | Sin daemon (rootless) |
 
 ---
 
