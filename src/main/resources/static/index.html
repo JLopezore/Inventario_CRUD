@@ -828,8 +828,7 @@
       // 1. Buscar el artículo más relevante
       const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search` +
         `&srsearch=${encodeURIComponent(titulo + ' video game')}&srlimit=1&format=json&origin=*`;
-      const searchRes  = await fetch(searchUrl);
-      const searchData = await searchRes.json();
+      const searchData = await fetch(searchUrl).then(r => r.json());
       const results    = searchData?.query?.search;
 
       if (!results?.length) {
@@ -839,37 +838,35 @@
 
       const pageTitle = results[0].title;
 
-      // 2. Obtener imagen e introducción de esa página
-      const detailUrl = `https://en.wikipedia.org/w/api.php?action=query` +
-        `&titles=${encodeURIComponent(pageTitle)}` +
-        `&prop=pageimages|extracts` +
-        `&pithumbsize=600&exintro=true&explaintext=true` +
-        `&format=json&origin=*`;
-      const detailRes  = await fetch(detailUrl);
-      const detailData = await detailRes.json();
-      const pages      = detailData?.query?.pages;
-      const page       = pages ? Object.values(pages)[0] : null;
+      // 2. REST API de Wikipedia: devuelve imagen del infobox + extracto en un solo request
+      const summaryRes = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`
+      );
 
-      if (!page) {
-        wikiEl.innerHTML = '<p class="wiki-not-found">No se encontró información en Wikipedia.</p>';
+      if (!summaryRes.ok) {
+        wikiEl.innerHTML = '<p class="wiki-not-found">No se pudo obtener información de Wikipedia.</p>';
         return;
       }
 
-      // Imagen
-      if (page.thumbnail?.source) {
-        coverEl.innerHTML = `<img src="${page.thumbnail.source}" alt="${esc(titulo)}" loading="lazy" />`;
+      const summary = await summaryRes.json();
+
+      // Imagen: thumbnail de la REST API (más fiable que pageimages)
+      const imgSrc = summary.thumbnail?.source || summary.originalimage?.source;
+      if (imgSrc) {
+        // Subir resolución reemplazando el ancho en la URL de Wikimedia
+        const bigSrc = imgSrc.replace(/\/\d+px-/, '/500px-');
+        coverEl.innerHTML = `<img src="${bigSrc}" alt="${esc(titulo)}" loading="lazy" />`;
       }
 
       // Descripción (máx. 600 caracteres)
-      const extract = page.extract?.trim() || '';
+      const extract = summary.extract?.trim() || '';
       const short   = extract.length > 600 ? extract.slice(0, 600).replace(/\s\S+$/, '') + '…' : extract;
-      const wikiLink = `https://en.wikipedia.org/wiki/${encodeURIComponent(pageTitle)}`;
+      const wikiLink = summary.content_urls?.desktop?.page
+        || `https://en.wikipedia.org/wiki/${encodeURIComponent(pageTitle)}`;
 
       wikiEl.innerHTML = short
         ? `<p class="wiki-text">${esc(short)}</p>
-           <a class="wiki-link" href="${wikiLink}" target="_blank" rel="noopener">
-             Ver artículo completo →
-           </a>`
+           <a class="wiki-link" href="${wikiLink}" target="_blank" rel="noopener">Ver artículo completo →</a>`
         : `<p class="wiki-not-found">Artículo encontrado pero sin descripción disponible.</p>
            <a class="wiki-link" href="${wikiLink}" target="_blank" rel="noopener">Ver en Wikipedia →</a>`;
 
