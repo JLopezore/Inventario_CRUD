@@ -2,6 +2,7 @@ package com.jlopezore.crudlab.controlle;
 
 import com.jlopezore.crudlab.model.Videojuego;
 import com.jlopezore.crudlab.service.VideojuegoService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,5 +26,16 @@ public class VideojuegoController {
     @PostMapping
     public Videojuego crear(@RequestBody Videojuego videojuego) {
         return service.crearVideojuego(videojuego);
+    }
+
+    @PutMapping("/{id}")
+    public Videojuego actualizar(@PathVariable Long id, @RequestBody Videojuego videojuego) {
+        return service.actualizarVideojuego(id, videojuego);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        service.eliminarVideojuego(id);
+        return ResponseEntity.noContent().build();
     }
 }
