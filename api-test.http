@@ -1,0 +1,15 @@
+### Crear una nueva videojueo
+POST http://localhost:8080/api/videojuego
+Content-Type: application/json
+
+{
+  "titulo": "Minecraft",
+  "plataforma": "PlayStore",
+  "anioLanzamiento": 2000,
+  "completado": false
+}
+
+### Listar todas las tareas
+GET http://localhost:8080/api/videojuego
+Accept: application/json
+```
