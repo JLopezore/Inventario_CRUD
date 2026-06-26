@@ -11,15 +11,20 @@ echo "  CRUD Lab — Despliegue en MicroShift"
 echo "============================================"
 
 # 1. Registro local de contenedores
+# IMPORTANTE: debe correr como root (sudo) con --network host para que
+# CRI-O (motor de MicroShift) pueda alcanzar localhost:5000.
+# Un registro rootless de Podman no es visible para procesos del sistema.
 echo ""
 echo "[1/7] Iniciando registro local de contenedores..."
-if ! podman ps --format "{{.Names}}" | grep -q "local-registry"; then
-  podman run -d --name local-registry \
-    -p 5000:5000 \
-    docker.io/library/registry:2
-  echo "  Registro iniciado."
-else
+if sudo podman ps --format "{{.Names}}" | grep -q "local-registry"; then
   echo "  El registro ya estaba en ejecucion."
+else
+  # Limpiar contenedor previo si existe pero esta detenido
+  sudo podman rm -f local-registry 2>/dev/null || true
+  sudo podman run -d --name local-registry \
+    --network host \
+    docker.io/library/registry:2
+  echo "  Registro iniciado en host:5000."
 fi
 
 # 2. Permitir registro inseguro en CRI-O (motor de contenedores de MicroShift)
@@ -53,6 +58,8 @@ podman tag docker.io/postgres:16-alpine $REGISTRY/postgres:16-alpine
 echo "  Imagen postgres lista."
 
 # 6. Publicar todas las imagenes en el registro local
+# El registro corre en host:5000 (--network host), accesible tanto desde
+# podman del usuario como desde CRI-O del sistema.
 echo ""
 echo "[6/7] Publicando imagenes en el registro local..."
 podman push $REGISTRY/crudlab-app:latest   --tls-verify=false
@@ -64,6 +71,14 @@ echo "  Imagenes publicadas."
 echo ""
 echo "[7/7] Desplegando en MicroShift..."
 oc apply -f k8s/
+
+# Forzar recreacion de pods para que tomen las imagenes nuevas y la config nueva
+# (necesario si los pods son de un intento anterior)
+echo ""
+echo "Reiniciando deployments para aplicar cambios..."
+oc -n $NAMESPACE rollout restart deployment/postgres
+oc -n $NAMESPACE rollout restart deployment/crudlab-app
+oc -n $NAMESPACE rollout restart deployment/crudlab-nginx
 
 echo ""
 echo "Esperando que los deployments esten listos..."
