@@ -30,6 +30,8 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", "admin", "-d", "inventario"]
@@ -39,3 +41,6 @@ spec:
       volumes:
         - name: postgres-data
           emptyDir: {}
+        - name: initdb
+          configMap:
+            name: postgres-initdb
