@@ -16,16 +16,17 @@ echo "============================================"
 # Un registro rootless de Podman no es visible para procesos del sistema.
 echo ""
 echo "[1/7] Iniciando registro local de contenedores..."
-if sudo podman ps --format "{{.Names}}" | grep -q "local-registry"; then
-  echo "  El registro ya estaba en ejecucion."
-else
-  # Limpiar contenedor previo si existe pero esta detenido
-  sudo podman rm -f local-registry 2>/dev/null || true
-  sudo podman run -d --name local-registry \
-    --network host \
-    docker.io/library/registry:2
-  echo "  Registro iniciado en host:5000."
-fi
+# Detener el registro rootless (usuario) si existe — no es visible para CRI-O
+podman stop local-registry 2>/dev/null || true
+podman rm   local-registry 2>/dev/null || true
+# Detener el registro root previo si existe
+sudo podman rm -f local-registry 2>/dev/null || true
+
+# Arrancar registro como root con --network host (accesible para CRI-O y para podman)
+sudo podman run -d --name local-registry \
+  --network host \
+  docker.io/library/registry:2
+echo "  Registro iniciado en host:5000."
 
 # 2. Permitir registro inseguro en CRI-O (motor de contenedores de MicroShift)
 echo ""
