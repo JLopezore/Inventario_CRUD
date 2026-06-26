@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crudlab-nginx
+  namespace: crudlab
+  labels:
+    app: crudlab-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crudlab-nginx
+  template:
+    metadata:
+      labels:
+        app: crudlab-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: localhost:5000/crudlab-nginx:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5

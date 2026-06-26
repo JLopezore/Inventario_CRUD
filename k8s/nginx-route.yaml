@@ -1,0 +1,14 @@
+# Route de OpenShift: expone el servicio nginx al exterior del cluster.
+# MicroShift asigna automaticamente un hostname en el dominio .apps del nodo.
+# Consultar la URL generada con: oc get route -n crudlab
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: crudlab
+  namespace: crudlab
+spec:
+  to:
+    kind: Service
+    name: crudlab-nginx
+  port:
+    targetPort: 80

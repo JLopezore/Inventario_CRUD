@@ -199,9 +199,25 @@ CRUD-Lab/
 │           └── static/
 │               └── index.html         ← frontend
 ├── nginx/
-│   └── nginx.conf
-├── Dockerfile
-├── docker-compose.yml
+│   ├── nginx.conf                     ← config de Nginx (producción)
+│   └── Dockerfile                     ← imagen Nginx con frontend integrado
+├── k8s/                               ← manifiestos para MicroShift
+│   ├── namespace.yaml
+│   ├── secret.yaml
+│   ├── postgres-pvc.yaml
+│   ├── postgres-deployment.yaml
+│   ├── postgres-service.yaml
+│   ├── app-deployment.yaml            ← 2 réplicas para Alta Disponibilidad
+│   ├── app-service.yaml
+│   ├── nginx-deployment.yaml
+│   ├── nginx-service.yaml
+│   └── nginx-route.yaml              ← Route OpenShift para acceso externo
+├── systemd/
+│   └── crudlab.service               ← unidad systemd para Podman
+├── Dockerfile                         ← imagen Spring Boot
+├── docker-compose.yml                 ← despliegue con Docker
+├── podman-compose.yml                 ← despliegue con Podman (RHEL)
+├── deploy.sh                          ← script automatizado para MicroShift
 └── build.gradle
 ```
 
@@ -221,4 +237,76 @@ La aplicación lee la configuración de la base de datos desde variables de ento
 
 ## Datos de ejemplo
 
-Al arrancar, `data.sql` se ejecuta automáticamente y carga un catálogo de ejemplo con más de 40 videojuegos distribuidos en categorías: RPGs, plataformas, shooters, indies, clásicos, deportes y estrategia.
+Al arrancar con Docker/Podman, `data.sql` se ejecuta automáticamente y carga un catálogo de ejemplo con más de 40 videojuegos. En MicroShift esta inicialización está desactivada (`SPRING_SQL_INIT_MODE=never`) para evitar duplicados entre réplicas — los datos se agregan desde la interfaz web.
+
+---
+
+## Despliegue en MicroShift (Red Hat)
+
+### Arquitectura de 3 nodos
+
+```
+[Nodo 1 — Cliente]          [Nodo 2 — Backend réplica 1]
+  Navegador web    ───────→  Pod: crudlab-app (8080)  ──→ [PostgreSQL]
+       │                                                        ↑
+       │           ───────→  Pod: crudlab-nginx (80)  ──→ [Nodo 3 — Backend réplica 2]
+                                    ↑                    Pod: crudlab-app (8080)
+                                 Route
+                              OpenShift
+```
+
+El Deployment del backend tiene `replicas: 2`. Cuando el docente ejecuta `oc delete pod <nombre>`, MicroShift levanta automáticamente un pod nuevo mientras el otro sigue sirviendo tráfico sin interrupción.
+
+### Ejecución del script de despliegue
+
+```bash
+# Dentro de la VM con MicroShift activo
+cd /opt/crudlab
+bash deploy.sh
+```
+
+El script realiza en orden:
+1. Levanta un registro local de contenedores en `localhost:5000`
+2. Configura CRI-O para aceptar el registro inseguro local
+3. Construye la imagen de Spring Boot con Gradle
+4. Construye la imagen de Nginx con el frontend integrado
+5. Descarga y re-etiqueta la imagen de PostgreSQL
+6. Publica las tres imágenes en el registro local
+7. Aplica todos los manifiestos con `oc apply -f k8s/`
+
+### Verificación del clúster
+
+```bash
+oc get nodes                    # debe mostrar STATUS = Ready
+oc get pods -A                  # pods internos de MicroShift
+oc get pods -n crudlab          # pods del proyecto (5 total)
+oc get route -n crudlab         # URL de acceso al frontend
+```
+
+### Prueba de Tolerancia a Fallos (Chaos Testing)
+
+```bash
+# Ver los pods del backend
+oc get pods -n crudlab -l app=crudlab-app
+
+# Eliminar uno (simula fallo)
+oc delete pod -n crudlab <nombre-del-pod>
+
+# MicroShift crea uno nuevo en segundos — verificar:
+oc get pods -n crudlab -w
+```
+
+### Manifiestos YAML
+
+| Archivo | Descripción |
+|---|---|
+| `k8s/namespace.yaml` | Espacio de nombres `crudlab` |
+| `k8s/secret.yaml` | Credenciales de BD (DB_URL, DB_USER, DB_PASSWORD) |
+| `k8s/postgres-pvc.yaml` | Volumen persistente de 1 Gi para PostgreSQL |
+| `k8s/postgres-deployment.yaml` | Pod de base de datos con readiness probe |
+| `k8s/postgres-service.yaml` | DNS interno `postgres:5432` |
+| `k8s/app-deployment.yaml` | **2 réplicas** del backend con liveness/readiness probes |
+| `k8s/app-service.yaml` | DNS interno `crudlab-app:8080` |
+| `k8s/nginx-deployment.yaml` | Pod de Nginx con el frontend ya integrado en la imagen |
+| `k8s/nginx-service.yaml` | Servicio interno del frontend |
+| `k8s/nginx-route.yaml` | Route OpenShift — expone la app al exterior |

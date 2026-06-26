@@ -16,7 +16,7 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
+  crudlab-app:
     build: .
     container_name: crudlab_app
     expose:

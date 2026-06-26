@@ -1,0 +1,51 @@
+# Deployment del backend Spring Boot con 2 replicas para Alta Disponibilidad.
+# Con replicas: 2, si el docente elimina un pod con "oc delete pod <nombre>",
+# MicroShift levanta uno nuevo automaticamente mientras el otro sigue sirviendo.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crudlab-app
+  namespace: crudlab
+  labels:
+    app: crudlab-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: crudlab-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: crudlab-app
+    spec:
+      containers:
+        - name: crudlab-app
+          image: localhost:5000/crudlab-app:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: db-secret
+          env:
+            # Evita que data.sql se ejecute en cada arranque del pod
+            - name: SPRING_SQL_INIT_MODE
+              value: "never"
+          readinessProbe:
+            httpGet:
+              path: /api/videojuego
+              port: 8080
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/videojuego
+              port: 8080
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            failureThreshold: 3
