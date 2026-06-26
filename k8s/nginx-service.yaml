@@ -4,8 +4,10 @@ metadata:
   name: crudlab-nginx
   namespace: crudlab
 spec:
+  type: NodePort
   selector:
     app: crudlab-nginx
   ports:
     - port: 80
       targetPort: 8080
+      nodePort: 30080
